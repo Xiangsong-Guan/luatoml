@@ -7,7 +7,7 @@ Think of XML, JSON or YAML, **TOML** has its own advantages. See [https://github
 To be brief, **TOML** is readable (like YAML), ease of use (like YAML), fast (like
 JSON), and can cut straight to the soul of the problem. I prefer to write more
 easy constructs to serve readability as opposed to short, complicated constructs to
-save some space and prove smartness: 
+save some space and prove smartness:
 
 > At scale, the skill level of developers reading/writing/maintaining/testing code is going to be a normal distribution around the mean of "not expert." ([link](http://www.quora.com/Go-programming-language/Scala-vs-Go-Could-people-help-compare-contrast-these-on-relative-merits-demerits))
 
@@ -15,16 +15,16 @@ save some space and prove smartness:
 
 ### TOML from file
 ```lua
-> require "luatoml"
+> toml = require("luatoml")
 > file = io.open("data.toml", "r")
 > content = file:read("*all")
-> luaObject = load(content)
+> luaObject = toml.load(content)
 ```
 
 ### Lua Object to TOML
 ```lua
-> require "luatoml"
-> luaString = dump(luaObject)
+> toml = require("luatoml")
+> luaString = toml.dump(luaObject)
 ```
 
 ## Test
