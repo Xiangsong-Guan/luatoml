@@ -4,19 +4,17 @@
 -- medium example
 -- path = "./tests/medium.toml"
 -- hard example
-path = "./tests/hard.toml"
+local path = "./tests/hard.toml"
 
 -- LOAD LIBRARY
-local pprint = require "pl.pretty"
-require "luatoml"
+local toml = require("luatoml")
 
 -- READ FILE CONTENT
-file = io.open(path, "r")
-content = file:read("*all")
+local file = io.open(path, "r")
+local content = file:read("*all")
 
 -- CONVERT TOML FORMAT TO LUA OBJECT
-luaObj = load(content)
+local luaObj = toml.load(content)
 
 -- JSON PRINT TO CONSOLE TO SEE WHAT OUR LUA OBJECT LOOKS LIKE
-pprint.dump(luaObj)
-
+print(luaObj.the.hard.bit.what)

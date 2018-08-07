@@ -21,7 +21,7 @@ dob = 1979-05-27T07:32:00Z # First class dates? Why not?
 server = "192.168.1.1"
 ports = [ 8001, 8001, 8002 ]
 enabled = true
-last_load = [ 1.2, 3.4 ,2.1 , 1]
+last_load = [ 1.2, 3.4 ,2.1 , 1.0]
 latest_reboot = [1979-05-27T07:32:00Z, 1999-02-27T07:32:00Z , 2000-02-27T07:32:00Z,]
 
   [database.connection]
@@ -61,7 +61,7 @@ servers = [
 
 phones = [
   1.2,
-  7569,
+  7569.0,
   -72.0,
 ]
 
@@ -80,7 +80,7 @@ cars = [
 multiline_datetime = [
   1979-05-27T07:32:00Z,
   1999-05-27T07:32:00Z ,
-  1989-05-27T07:32:00Z, 
+  1989-05-27T07:32:00Z,
 ]
 
 [oh.yeah.test]

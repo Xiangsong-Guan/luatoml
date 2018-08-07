@@ -1,87 +1,130 @@
-require "util"
-pprint = require "pl.pretty"
+-- 二零一八年八月七日
+-- 本程序实现了对 toml 的解析与对 lua 表的 toml 化
 
-debug = false
+local _mod = {
+	load;
+	-- lua_table load(toml_string);
 
-function strip(str) 
-	return string.format( "%s", str:match( "^%s*(.-)%s*$" ) ) 
+	dump;
+	-- toml_string dump(lua_table)
+}
+
+local strip
+-- strip 函数去除字符串 str 的首尾空白字符（space character）并返回去除后的结果
+
+local replace_char
+-- replace_char 函数替换字符串 str 中指定位置 pos 处的字符为字符 r
+
+local split_line_2_group_array
+-- split_line_2_group_array 函数将一行文本以点（.）为界切割为数个字符串
+-- 返回为一个序列
+
+local table_size
+-- table_size 函数返回表 table 中成员的数量
+
+local split_line
+-- split_line 函数疑似分析一行文本的主函数，返回格式化的字符串
+
+local split_assignment
+-- split_assignment 函数拆分一个键值对并返回
+
+local load_value
+-- load_value 函数返回一个 TOML 中的值 v 与其类型名称的表
+
+local load_array
+-- load_array 函数返回一个 TOML 中的序列 a 在 Lua 中的序列表示
+
+local dump_value
+-- dump_value 函数将一个 Lua 的值序列化为一个 TOML 的值
+
+local dump_section
+-- dump_section 函数将一个 Lua 表序列化为一个 TOML 的部分
+
+function strip(str)
+	return string.format("%s", str:match("^%s*(.-)%s*$"))
 end
 
 function replace_char(pos, str, r)
-    return ("%s%s%s"):format(str:sub(1,pos-1), r, str:sub(pos+1))
+	return ("%s%s%s"):format(str:sub(1, pos - 1), r, str:sub(pos + 1))
 end
 
-function splitLineToGroupArray(line)
+function split_line_2_group_array(line)
 	local retVal = {}
 	local i = 1
-	for group in string.gmatch(line, "[^.]+") do
+	for group in string.gmatch(line, "[^%.]+") do
 		retVal[i] = group
 		i = i + 1
 	end
 	return retVal
 end
 
-function tableSize(table)
+function table_size(table)
 	local size = 0
-	for i, v in pairs(table) do
+	for _, _ in pairs(table) do
 		size = size + 1
 	end
 	return size
 end
 
-function splitLine(str)
+function split_line(str)
 	local openArr = 0
 	local openString = false
 	local beginLine = true
 	local keyGroup = false
-	local delNum = 1
+
 	for i = 1, #str do
 		local char = string.sub(str, i, i)
-		
-		if char == '"' and string.sub(str, i-1, i-1) ~= '\\' then
+
+		if char == '"' and string.sub(str, i - 1, i - 1) ~= "\\" then
 			openString = not openString
 		end
-		if keyGroup and (char == ' ' or char == '\t') then
+
+		if keyGroup and (char == " " or char == "\t") then
 			keyGroup = false
 		end
-		if char == '#' and not openString and not keyGroup then
+
+		if char == "#" and not openString and not keyGroup then
 			local j = i
-			while string.sub(str, j, j) ~= '\n' do
-				str = replace_char(j, str, ' ')
+			while string.sub(str, j, j) ~= "\n" do
+				str = replace_char(j, str, " ")
 				j = j + 1
 			end
 		end
-		if char == '[' and not openString and not keyGroup then
-			if beginLine then 
+
+		if char == "[" and not openString and not keyGroup then
+			if beginLine then
 				keyGroup = true
 			else
 				openArr = openArr + 1
 			end
 		end
-		if char == ']' and not openString and not keyGroup then
+
+		if char == "]" and not openString and not keyGroup then
 			if keyGroup then
 				keyGroup = false
 			else
 				openArr = openArr - 1
 			end
 		end
-		if char == '\n' then
-			if openString then error("Unbalanced Quotes") end
-			if openArr ~= 0 then 
-				str = replace_char(i, str, ' ') 
+
+		if char == "\n" then
+			if openString then
+				error("unbalanced quotes")
+			end
+			if openArr ~= 0 then
+				str = replace_char(i, str, " ")
 			else
 				beginLine = true
-			end			
-		elseif beginLine and char ~= ' ' and char ~= '\t' then
+			end
+		elseif beginLine and char ~= " " and char ~= "\t" then
 			beginLine = false
 			keyGroup = true
-		else 
-		end	
+		end
 	end -- end of for loop
 	return str
 end
 
-function splitAssignment(str)
+function split_assignment(str)
 	local retVal = {}
 	local i = 1
 	for group in string.gmatch(str, "[^=]+") do
@@ -91,97 +134,45 @@ function splitAssignment(str)
 	return retVal
 end
 
-function load(str)
-	--[[--
-	Load a TOML string into Lua object (deserialization)
-	
-	@Parameter: str
-		The str which is parsed in as TOML
-	
-	@Returns: A table of nested components of TOML string
-	--]]--
-	local implicitGroups = {}
-	local retVal = {}
-	local currentLevel = retVal
-	str = splitLine(str)
-	for line in string.gmatch(str, "[^\n]+") do
-		line = strip(line)
-		if string.sub(line, 1, 1) == '[' then
-			line = string.sub(line, 2, #line-1) -- key group name
-			currentLevel = retVal
-			groups = splitLineToGroupArray(line)
-			for i, group in ipairs(groups) do
-				if group == "" then error("Can't have keygroup with empty name") end
-				if currentLevel[group] ~= nil then
-					if i == tableSize(groups) then
-						if implicitGroups[group] ~= nil then
-							implicitGroups[group] = nil
-						else
-							error("Group existed")
-						end
-					end
-				else
-					if i ~= tableSize(groups) then
-						implicitGroups[group] = true
-					end
-					currentLevel[group] = {}
-				end
-				currentLevel = currentLevel[group]
-			end -- end of for loop
-		
-		elseif line:match("=") ~= nil then
-			assignment = splitAssignment(line)
-			variable = strip(assignment[1])
-			value = strip(assignment[2])
-			loadedVal = load_value(value)
-			value = loadedVal["value"]
-			if currentLevel[variable] ~= nil then
-				error("Duplicated key")
-			else
-				currentLevel[variable] = value
-			end
-		end
-	end
-	return retVal
-end
-
 function load_value(v)
-	-- boolean
-	if v == "true" then 
-		return { value=true, type="boolean" }
-	-- boolean
+	if v == "true" then
+		-- boolean
+		return {value = true, type = "boolean"}
 	elseif v == "false" then
-		return { value=false, type="boolean" }
-	-- string, handle simple string for now
+		-- boolean
+		return {value = false, type = "boolean"}
 	elseif string.sub(v, 1, 1) == '"' then
+		-- string, handle simple string for now
 		local lengthV = string.len(v)
-		local str = string.sub(v, 2, lengthV-1)
-		return { value=str, type="string" }
-	-- array
-	elseif string.sub(v, 1, 1) == '[' then
-		return { value=load_array(v), type="table" }
-	-- datetime, handle as string for now
-	elseif string.len(v) == 20 and string.sub(v, 20, 20) == 'Z' then
+		local str = string.sub(v, 2, lengthV - 1)
+		return {value = str, type = "string"}
+	elseif string.sub(v, 1, 1) == "[" then
+		-- array
+		return {value = load_array(v), type = "table"}
+	elseif string.len(v) == 20 and string.sub(v, 20, 20) == "Z" then
+		-- datetime, handle as string for now
 		local lengthV = string.len(v)
-		local str = string.sub(v, 1, lengthV-1)
-		return { value=str, type="string" }
-	-- number
+		local str = string.sub(v, 1, lengthV - 1)
+		return {value = str, type = "string"}
 	else
+		-- number
 		local negative = false
-		if string.sub(v, 1, 1) == '-' then
+		if string.sub(v, 1, 1) == "-" then
 			negative = true
 			local lengthV = string.len(v)
 			v = string.sub(v, 2, lengthV)
 		end
 		v = tonumber(v)
-		if negative then v = 0 - v end		
-		return { value=v, type="number" }			
+		if negative then
+			v = 0 - v
+		end
+		return {value = v, type = "number"}
 	end
-end	
+end
 
 function load_array(a)
 	local retVal = {}
-	a = string.format( "%s", a:match( "^%s*(.-)%s*$" ) ) 
+	a = string.format("%s", a:match("^%s*(.-)%s*$"))
 	a = string.sub(a, 2, #a - 1)
 	local newArr = {}
 	local openArr = 0
@@ -194,21 +185,21 @@ function load_array(a)
 		elseif char == "]" then
 			openArr = openArr - 1
 		elseif char == "," and openArr == 0 then
-			local subStr = string.sub(a, j, i-1)
-			subStr = string.format( "%s", subStr:match( "^%s*(.-)%s*$" ) ) 
+			local subStr = string.sub(a, j, i - 1)
+			subStr = string.format("%s", subStr:match("^%s*(.-)%s*$"))
 			newArr[index] = subStr
 			j = i + 1
 			index = index + 1
 		end
 	end
 	local subStr = string.sub(a, j, #a)
-	subStr = string.format( "%s", subStr:match( "^%s*(.-)%s*$" ) ) 
+	subStr = string.format("%s", subStr:match("^%s*(.-)%s*$"))
 	newArr[index] = subStr
-	
+
 	local aType = nil
-	local index = 1
-	for i, v in ipairs(newArr) do
-		if v ~= '' then
+	index = 1
+	for _, v in ipairs(newArr) do
+		if v ~= "" then
 			local loadedVal = load_value(v)
 			local nVal = loadedVal["value"]
 			local nType = loadedVal["type"]
@@ -224,55 +215,6 @@ function load_array(a)
 		end
 	end
 	return retVal
-end	
-
-function dump(obj)
-	--[[--
-	Dump Lua object into TOML string (serialization)
-	
-	@Parameter: obj
-		The Lua table
-	
-	@Returns: A TOML string
-	--]]--
-	local addToSections
-	local retVal = ""
-	local dumpedSection = dump_section(obj)
-	local addToRetVal = dumpedSection["retStr"]
-	local sections = dumpedSection["retDict"]
-	retVal = retVal .. addToRetVal
-	
-	while tableSize(sections) ~= 0 do
-		local newSections = {}
-		for section, value in pairs(sections) do
-			dumpedSection = dump_section(sections[section])
-			addToRetVal = dumpedSection["retStr"]
-			addToSections = dumpedSection["retDict"]
-			if addToRetVal ~= nil then
-				retVal = retVal .. "[" .. section .. "]\n"
-				retVal = retVal .. addToRetVal
-			end
-			for s, value in pairs(addToSections) do
-				newSections[section .. "." .. s] = addToSections[s]
-			end
-		end
-		sections = newSections
-	end
-	return retVal
-end	
-
-function dump_section(obj)
-	local retStr = ""
-	local retDict = {}
-	for i, section in pairs(obj) do
-		if type(obj[i]) ~= "table" then
-			retStr = retStr .. i .. " = " 
-			retStr = retStr .. dump_value(obj[i]) .. '\n'
-		else
-			retDict[i] = obj[i]
-		end
-	end
-	return { retStr=retStr, retDict=retDict }
 end
 
 function dump_value(v)
@@ -285,3 +227,96 @@ function dump_value(v)
 		return v
 	end
 end
+
+function dump_section(obj)
+	local retStr = ""
+	local retDict = {}
+	for i, _ in pairs(obj) do
+		if type(obj[i]) ~= "table" then
+			retStr = retStr .. i .. " = "
+			retStr = retStr .. dump_value(obj[i]) .. "\n"
+		else
+			retDict[i] = obj[i]
+		end
+	end
+	return {retStr = retStr, retDict = retDict}
+end
+
+function _mod.load(str)
+	local implicitGroups = {}
+	local retVal = {}
+	local currentLevel = retVal
+	str = split_line(str)
+	for line in string.gmatch(str, "[^\n]+") do
+		line = strip(line)
+		if string.sub(line, 1, 1) == "[" then
+			line = string.sub(line, 2, #line - 1) -- key group name
+			currentLevel = retVal
+			local groups = split_line_2_group_array(line)
+			for i, group in ipairs(groups) do
+				if group == "" then
+					error("Can't have keygroup with empty name")
+				end
+
+				if currentLevel[group] ~= nil then
+					if i == table_size(groups) then
+						if implicitGroups[group] ~= nil then
+							implicitGroups[group] = nil
+						else
+							error("Group existed")
+						end
+					end
+				else
+					if i ~= table_size(groups) then
+						implicitGroups[group] = true
+					end
+					currentLevel[group] = {}
+				end
+
+				currentLevel = currentLevel[group]
+			end -- end of for inner loop
+		elseif line:match("=") ~= nil then
+			local assignment = split_assignment(line)
+			local variable = strip(assignment[1])
+			local value = strip(assignment[2])
+			local loadedVal = load_value(value)
+			value = loadedVal["value"]
+			if currentLevel[variable] ~= nil then
+				error("Duplicated key")
+			else
+				currentLevel[variable] = value
+			end
+		end
+	end -- end of outer for loop
+	return retVal
+end
+
+function _mod.dump(obj)
+	local addToSections
+	local retVal = ""
+	local dumpedSection = dump_section(obj)
+	local addToRetVal = dumpedSection["retStr"]
+	local sections = dumpedSection["retDict"]
+	retVal = retVal .. addToRetVal
+
+	while table_size(sections) ~= 0 do
+		local newSections = {}
+		for section, _ in pairs(sections) do
+			dumpedSection = dump_section(sections[section])
+			addToRetVal = dumpedSection["retStr"]
+			addToSections = dumpedSection["retDict"]
+			if addToRetVal ~= nil then
+				retVal = retVal .. "[" .. section .. "]\n"
+				retVal = retVal .. addToRetVal
+			end
+			for s, _ in pairs(addToSections) do
+				newSections[section .. "." .. s] = addToSections[s]
+			end
+		end
+		sections = newSections
+	end
+	return retVal
+end
+
+_ENV[...] = _mod
+package.loaded[...] = _mod
