@@ -250,31 +250,68 @@ function _mod.load(str)
 	for line in string.gmatch(str, "[^\n]+") do
 		line = strip(line)
 		if string.sub(line, 1, 1) == "[" then
-			line = string.sub(line, 2, #line - 1) -- key group name
-			currentLevel = retVal
-			local groups = split_line_2_group_array(line)
-			for i, group in ipairs(groups) do
-				if group == "" then
-					error("Can't have keygroup with empty name")
-				end
+			if string.sub(line, 2, 2) ~= "[" then -- 支持表序列
+				line = string.sub(line, 2, #line - 1) -- key group name 非表序列
+				currentLevel = retVal
+				local groups = split_line_2_group_array(line)
+				for i, group in ipairs(groups) do
+					if group == "" then
+						error("Can't have keygroup with empty name")
+					end
 
-				if currentLevel[group] ~= nil then
-					if i == table_size(groups) then
-						if implicitGroups[group] ~= nil then
-							implicitGroups[group] = nil
-						else
-							error("Group existed")
+					if currentLevel[group] ~= nil then
+						if i == table_size(groups) then
+							if implicitGroups[group] ~= nil then
+								implicitGroups[group] = nil
+							else
+								error("Group existed")
+							end
 						end
+					else
+						if i ~= table_size(groups) then
+							implicitGroups[group] = true
+						end
+						currentLevel[group] = {}
 					end
-				else
-					if i ~= table_size(groups) then
-						implicitGroups[group] = true
-					end
-					currentLevel[group] = {}
-				end
 
-				currentLevel = currentLevel[group]
-			end -- end of for inner loop
+					if #currentLevel[group] == 0 then
+						currentLevel = currentLevel[group]
+					else
+						currentLevel = currentLevel[group][#currentLevel[group]]
+					end
+				end -- end of for inner loop
+			else -- 支持表序列
+				line = string.sub(line, 3, #line - 2) -- 表序列
+				currentLevel = retVal
+				local groups = split_line_2_group_array(line)
+				local new_table = {}
+				for i, group in ipairs(groups) do
+					if group == "" then
+						error("Can't have keygroup with empty name")
+					end
+
+					if currentLevel[group] ~= nil then
+						if i == table_size(groups) then
+							-- 序列已存在
+							table.insert(currentLevel[group], new_table)
+						end
+					else
+						-- 序列不存在（第一个）
+						currentLevel[group] = {}
+						table.insert(currentLevel[group], new_table)
+					end
+
+					if i ~= table_size(groups) then
+						if #currentLevel[group] == 0 then
+							currentLevel = currentLevel[group]
+						else
+							currentLevel = currentLevel[group][#currentLevel[group]]
+						end
+					else
+						currentLevel = new_table
+					end
+				end  -- end of for loop
+			end
 		elseif line:match("=") ~= nil then
 			local assignment = split_assignment(line)
 			local variable = strip(assignment[1])

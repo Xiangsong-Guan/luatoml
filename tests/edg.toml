@@ -1,0 +1,63 @@
+# 2018-8-13
+# 博弈表示示例（离散）
+
+# 总则
+# 参与者有限、实数域、离散策略空间 有限、效用函数存在
+# 解析（偏）导数 、效用函数只存在有限个不可（偏） 导点
+
+# 细则
+# 该示例基于正则形式的博弈表示，适用于有限参与者的静态博弈
+
+title = "三人投票博弈"
+comment = ""
+
+game_type = "static"
+strategy_stype = "discrete" # 表示为离散博弈
+
+# 离散博弈的回报使用回报矩阵
+payoff = [
+  # 每一个单元格中依 name 次序排列他们的回报，name 次序见连续例文件
+  #a=1
+  #c=1,   c=2,   c=3
+  2,0,1, 2,0,1, 2,0,1, #b=1
+  2,0,1, 1,2,0, 2,0,1, #b=2
+  2,0,1, 2,0,1, 0,1,2, #b=3
+  #a=2
+  2,0,1,1,2,0,2,0,1,
+  1,2,0,1,2,0,1,2,0,
+  2,0,1,1,2,0,0,1,2,
+  #a=3
+  2,0,1,2,0,1,0,1,2,
+  2,0,1,1,2,0,0,1,2,
+  0,1,2,0,1,2,0,1,2,
+]
+# 则：
+# payoff[((2-1)*3*3 + (2-1)*3 + (2-1))*3 + 3] 为
+# (a=2,b=2,c=2) 时 c 的回报 （从 1 开始数）
+# 即：
+# ?'s payoff(a,b,c) = ((a-1)*3*3 + (b-1)*3 + (c-1))*3 + ?
+
+# 由于 toml 限制 payoff 域不得不位于所有的 section 之前
+
+[players]
+total = 3
+a = 1
+b = 1
+c = 1
+label = [ "a", "b", "c"]
+name = ["Alice", "Bob", "Clare"]
+
+[strategy]
+meaning = "abstract"
+
+  [[strategy.a]]
+  presenting = "arrary"
+  arrary = [1, 2, 3] # 序列/数组
+
+  [[strategy.b]]
+  presenting = "include"
+  include = "strategy.a[1]"
+
+  [[strategy.c]]
+  presenting = "include"
+  include = "strategy.a[1]"

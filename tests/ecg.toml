@@ -1,0 +1,80 @@
+# 2018-8-13
+# 博弈表示示例（连续与离散混合、概率因子）
+
+# 总则
+# 参与者有限、实数域、离散策略空间 有限、效用函数存在
+# 解析（偏）导数 、效用函数只存在有限个不可（偏） 导点
+
+# 细则
+# 该示例基于正则形式的博弈表示，适用于有限参与者的静态博弈
+
+title = "DDoS博弈例" # 内部不使用
+comment = "" # 内部不使用
+
+game_type = "static" # 表示为静态博弈，动态博弈另有表示规则
+strategy_stype = "continue" # 表示为连续博弈
+
+[players]
+total = 2 # 参与者总数
+attacker = 1 # 各个类型的参与者的数量。每一个类型的参与者的策略于回
+defender = 1 # 报定义相同
+label = [ "attacker", "defender" ] # 参与者类型
+name = ["张三", "赵四"] # 内部不使用，为每一个参与者命名。按照
+                       # label 中的顺序依次赋予名字
+# 即：
+# 依顺序从 name 中取出名字，先赋完所有的 attacker，再赋所有
+# 的 defender。
+
+[strategy]
+meaning = "specific" # 策略其值的含义有两种：抽象的（赋值
+                     # 本身无具体意义）与具体的（赋值本身可能
+                     # 参与数值计算）
+
+  # 策略集合的名字一定与参与者同名
+  # 具体策略集合的赋值/取值，使用 toml 表序列以组合混合赋值
+  [[strategy.attacker]]
+  presenting = "sequence" # 策略集合的呈现形式：区间、数列、具体
+                          # 的序列、引用
+  # 定义区间、数列的最大最小取值
+  # 数列递推式此式需要符合 lua 语法与规
+  # 则，其会被直接作为代码而执行 next 与 pre 为钦定命名，不可改
+  sequence = { range = [0, 100], formula = "next = pre + 1" }
+
+  [[strategy.defender]]
+  presenting = "interval"
+  # 连续的区间指需要指明范围（闭区间）
+  # 多个区间则依次排开：
+  # range = [0, 1, 10, 11]
+  # 其表示区间 [0,1] 与 [10,11]
+  # 当这些区间定义域上的效用函数不同时，他们不得
+  # 这样合并表示，必须新建一个
+  # strategy.defender.value 表。见回报解释
+  interval = [0, 10]
+
+# 连续博弈的回报必须由效用函数表达，而离散博弈的回报使用回报矩阵
+[payoff]
+
+  # 命名规则同策略集合，使用 toml 表序列以对不同定义域区间上的不同效
+  # 用函数。效用函数与其关联的定义域必须位于表序列的相同序号下。
+  attacker = ["#{setting.stochastic[1]} - (#{strategy.attacker} * 10)"]
+  # 效用函数表示满足 lua 语法与规则。现阶段概率因子仅
+  # 支持指定的概率分布，见环境定义。
+
+  # 回报表达中允许引用，使用 #{} 中的大括号包含被引用的域。该域必须
+  # 在该文件中有定义，否则会抛出错误。
+  defender = ["-#{payoff.attacker[1].formula}"]
+
+# 环境配置，现阶段只用于概率因子的定义，概率因子支持被引用
+[setting]
+
+  [[setting.stochastic]]
+  distribution = "normal" # 高斯分布
+
+    # 参数，不同的概率分布会有不同的参数
+    [setting.stochastic.para]
+    expectation = 0
+    variance = 0
+    # 随机变量落点范围，与策略取值范围同规则。唯有：
+    # 随机变量的落点常为含有策略的表达式（如尽为常数则无将其单独分列
+    # 之需），故其赋值为字符串。以空串表示其所在方向的“无穷”
+    range = ["", "#{strategy.defender}"]
